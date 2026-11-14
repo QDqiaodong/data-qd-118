@@ -9,5 +9,6 @@ requires-python = ">=3.11"
 dependencies = []
 [project.scripts]
 demand-backtest = "demand_backtest.cli:main"
+demand-reconcile = "demand_backtest.reconcile_cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]

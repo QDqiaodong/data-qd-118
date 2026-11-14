@@ -47,3 +47,51 @@ missing_target_vintage之一。
 样例fixtures/vintage.json：2序列、7个origin请求、5个被评估（2个跳过），30条预测事实。
 bolts的naive MAE=25/8、moving_mean=4、seasonal_naive=4；steady整段平值，尺度为0，MASE=null。
 把后发修订追加进输入不会改变其发布前的任何预测事实。
+
+## Hierarchy reconciliation v1（`demand-reconcile`）
+
+`demand-reconcile`消费两份既有回测报告，输出可加总的非负层级预测；不回写、不修改两份输入。
+`--report`必须出现两次（一份日历回测报告、一份修订回测报告），`--hierarchy`指向层级文件，
+`--output`为唯一写目标。主入口`demand-backtest`保持不变。
+
+hierarchy是`{"nodes":[{"series","parent","weight"}]}`，节点数<=200。`series`唯一且非空；
+`parent`为`null`（根）或另一节点`series`，必须形成**单根树**：恰好一个根、每个父引用有效、
+从根可达全部节点（因此也拒绝与根脱节的环）。`weight`为正Fraction字符串，如`1`、`3/2`、`50`；
+非正、不可解析或分量超过18位数字均拒绝。每个节点对应一条序列，层级内不得有同名序列。
+
+两份报告均为既有`schema_version=1`输出：日历回测报告与`mode=revision_vintage`报告，
+各取`result.forecasts`。把两份事实合并后按`(origin,target_date,method)`分组：
+同一组必须包含层级里全部且仅有的序列各一条预测事实，且`horizon`一致；
+重复事实（同组同序列出现两次，无论来自哪份报告）拒绝。
+不同`origin`即便`target_date`重叠也绝不合并；`actual`及其附带字段不参与协调。
+空组合法（零个事实）：报告为`group_count=0`，不发明预测。
+两份报告任一份超出200000条预测事实，或合并后总数超过该上限，均拒绝。
+
+每组精确求解
+`minimize Σ_i weight_i × (x_i − forecast_i)²`
+`s.t. x_parent = Σ_{直接子} x_child，x_leaf ≥ 0`。
+根值由直接子值之和决定，父值不独立；叶值非负。最优解唯一（严格凸且约束等价于仿射消除）。
+算法在树上做等式消元＋原-对偶活跃集，只处理当前工作集，**不枚举全部活跃集**，
+因此节点数200、总事实20万的输入仍可用（20万事实由1000个200节点组构成）。
+禁止的做法（不采用）：先按0截断负叶再仅按截断值重算父级——那只满足可行性却非最优。
+
+输出`result`：
+- `groups`：按`(origin,target_date,method)`排序的确定序列，每组含`inputs`（来源报告种类）、
+  `horizon`、`nodes`（按`series`排序，含`parent`、`weight`、`forecast`原值、`reconciled`协调值、
+  `leaf`、`zero`，均为规范Fraction文本）、`objective`目标函数值、`zero_leaves`零叶序列、
+  `leaf_kkt`叶梯度证书（`series`/`value`/`gradient`；非零叶梯度必为0，零叶梯度≥0）。
+- `hierarchy`：节点数、根、叶序列、层级文件SHA256。
+- `reports`：两份输入的`kind`、报告自身`source_sha256`、报告字节SHA256。
+- `input_sha256`：三份输入字节的SHA256。
+- `fact_count`、`group_count`、`aggregation`、`evaluation_unit`说明。
+
+绑定：输出记录两份报告与层级文件的字节SHA256；输入顺序不影响输出（按`kind`归一）。
+两份报告是既有发布产物，200000条事实约合55MB，故报告逐个上限128MB、层级文件仍为8MB；
+两者都沿用既有严格JSON解析（拒绝重复键、非有限数值）。报告由既有`demand-backtest`生成，
+每份报告本身已受200000事实上限约束。
+坏输入（缺字段、多余字段、非规范Fraction、非树层级、组不齐、horizon不一致、重复事实、
+超限、报告类型不符等）退出码2，且不触碰已有输出文件。两个输入文件绝不覆盖：
+`--output`等于任一输入路径时退出2。成功后以原子替换写出。
+样例`fixtures/reconcile_calendar_input.json`与`fixtures/reconcile_vintage_input.json`
+经`demand-backtest`生成两份报告，再用`fixtures/hierarchy.json`（5节点、两层、含正权重Fraction）
+协调，得到12组、60条事实；必须出现最优解触零的叶（如`steady`、部分组`nuts`）。

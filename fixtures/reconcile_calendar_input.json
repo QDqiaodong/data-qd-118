@@ -1,0 +1,98 @@
+{
+  "horizon": 2,
+  "initial_train": 3,
+  "mean_window": 2,
+  "observations": [
+    {
+      "date": "2026-01-01",
+      "quantity": 9,
+      "series": "all"
+    },
+    {
+      "date": "2026-01-02",
+      "quantity": 5,
+      "series": "all"
+    },
+    {
+      "date": "2026-01-03",
+      "quantity": 1,
+      "series": "all"
+    },
+    {
+      "date": "2026-01-04",
+      "quantity": 0,
+      "series": "all"
+    },
+    {
+      "date": "2026-01-05",
+      "quantity": 0,
+      "series": "all"
+    },
+    {
+      "date": "2026-01-06",
+      "quantity": 0,
+      "series": "all"
+    },
+    {
+      "date": "2026-01-01",
+      "quantity": 5,
+      "series": "total"
+    },
+    {
+      "date": "2026-01-02",
+      "quantity": 3,
+      "series": "total"
+    },
+    {
+      "date": "2026-01-03",
+      "quantity": 2,
+      "series": "total"
+    },
+    {
+      "date": "2026-01-04",
+      "quantity": 1,
+      "series": "total"
+    },
+    {
+      "date": "2026-01-05",
+      "quantity": 0,
+      "series": "total"
+    },
+    {
+      "date": "2026-01-06",
+      "quantity": 0,
+      "series": "total"
+    },
+    {
+      "date": "2026-01-01",
+      "quantity": 2,
+      "series": "bolts"
+    },
+    {
+      "date": "2026-01-02",
+      "quantity": 2,
+      "series": "bolts"
+    },
+    {
+      "date": "2026-01-03",
+      "quantity": 1,
+      "series": "bolts"
+    },
+    {
+      "date": "2026-01-04",
+      "quantity": 0,
+      "series": "bolts"
+    },
+    {
+      "date": "2026-01-05",
+      "quantity": 0,
+      "series": "bolts"
+    },
+    {
+      "date": "2026-01-06",
+      "quantity": 0,
+      "series": "bolts"
+    }
+  ],
+  "season": 2
+}

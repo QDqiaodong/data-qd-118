@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "parent": null,
+      "series": "all",
+      "weight": "500"
+    },
+    {
+      "parent": "all",
+      "series": "total",
+      "weight": "50"
+    },
+    {
+      "parent": "total",
+      "series": "bolts",
+      "weight": "2"
+    },
+    {
+      "parent": "all",
+      "series": "steady",
+      "weight": "1"
+    },
+    {
+      "parent": "all",
+      "series": "nuts",
+      "weight": "3/2"
+    }
+  ]
+}
