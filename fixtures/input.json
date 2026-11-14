@@ -1,0 +1,38 @@
+{
+  "initial_train": 3,
+  "horizon": 2,
+  "mean_window": 2,
+  "season": 2,
+  "observations": [
+    {
+      "series": "bolts",
+      "date": "2026-01-01",
+      "quantity": 2
+    },
+    {
+      "series": "bolts",
+      "date": "2026-01-02",
+      "quantity": 4
+    },
+    {
+      "series": "bolts",
+      "date": "2026-01-03",
+      "quantity": 6
+    },
+    {
+      "series": "bolts",
+      "date": "2026-01-04",
+      "quantity": 8
+    },
+    {
+      "series": "bolts",
+      "date": "2026-01-05",
+      "quantity": 10
+    },
+    {
+      "series": "bolts",
+      "date": "2026-01-06",
+      "quantity": 12
+    }
+  ]
+}
