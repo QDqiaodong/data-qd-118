@@ -13,6 +13,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install --no-build-isolation --no-deps .
 .venv/bin/python -m pip check
 .venv/bin/demand-backtest --source fixtures/input.json --output run/report.json
+.venv/bin/demand-backtest --vintage-source fixtures/vintage.json --output run/vintage.json
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
@@ -25,9 +26,15 @@ python3 -m venv .venv
 同输入重跑不累加。测试使用临时目录，运行产物在忽略的run/。
 
 src/demand_backtest/model.py 为业务模型，相关算法模块独立组织；common.py 提供受限JSON及报告发布，
-cli.py 衔接数据链路。fixtures 为明确自制样例，代码与样例采用MIT许可。
+cli.py 衔接数据链路，vintage.py 处理修订版回测。fixtures 为明确自制样例，代码与样例采用MIT许可。
 
 ## 业务与样例结果
 
-2个滚动origin共12条预测事实；naive MAE=3，moving_mean和seasonal_naive MAE均为4。
+日历回测：2个滚动origin共12条预测事实；naive MAE=3，moving_mean和seasonal_naive MAE均为4。
 forecast.py只接收历史前缀，model.py建立逐origin事实与训练期尺度；无外部模型/下载。
+
+修订回测（`--vintage-source`）：7个origin请求中5个可评估，共30条事实；bolts的naive MAE=25/8，
+moving_mean和seasonal_naive MAE均为4；steady为平值序列，逐origin尺度为0，MASE=null。
+每个origin只用发布日<=该origin的版本训练，目标取发布日<=score_as_of的最新版本；
+lineage、actual_published_on与skipped原因便于审计，后发修订不改变早期预测。
+

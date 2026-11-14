@@ -9,7 +9,11 @@ def predict(train,horizon,window,season):
 def ratio(x):return str(x) if x is not None else None
 
 def metrics(points):
-    n=len(points);absolute=sum((abs(p['actual']-p['forecast']) for p in points),Fraction())
+    n=len(points)
+    if not n:
+        return {'count':0,'mae':None,'mse':None,'bias_forecast_minus_actual':None,
+                'wape':None,'mase':None,'mase_count':0}
+    absolute=sum((abs(p['actual']-p['forecast']) for p in points),Fraction())
     squared=sum(((p['actual']-p['forecast'])**2 for p in points),Fraction())
     signed=sum((p['forecast']-p['actual'] for p in points),Fraction())
     actual=sum(p['actual'] for p in points)

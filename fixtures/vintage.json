@@ -1,0 +1,33 @@
+{
+  "initial_train": 3,
+  "horizon": 2,
+  "mean_window": 2,
+  "season": 2,
+  "score_as_of": "2026-01-08",
+  "origins": [
+    {"series": "bolts", "date": "2026-01-02"},
+    {"series": "bolts", "date": "2026-01-03"},
+    {"series": "bolts", "date": "2026-01-04"},
+    {"series": "bolts", "date": "2026-01-05"},
+    {"series": "bolts", "date": "2026-01-06"},
+    {"series": "bolts", "date": "2026-01-07"},
+    {"series": "steady", "date": "2026-01-03"}
+  ],
+  "revisions": [
+    {"series": "bolts", "date": "2026-01-01", "published_on": "2026-01-01", "quantity": 2},
+    {"series": "bolts", "date": "2026-01-02", "published_on": "2026-01-02", "quantity": 4},
+    {"series": "bolts", "date": "2026-01-03", "published_on": "2026-01-03", "quantity": 6},
+    {"series": "bolts", "date": "2026-01-03", "published_on": "2026-01-06", "quantity": 60},
+    {"series": "bolts", "date": "2026-01-04", "published_on": "2026-01-04", "quantity": 8},
+    {"series": "bolts", "date": "2026-01-04", "published_on": "2026-01-05", "quantity": 9},
+    {"series": "bolts", "date": "2026-01-05", "published_on": "2026-01-05", "quantity": 10},
+    {"series": "bolts", "date": "2026-01-06", "published_on": "2026-01-06", "quantity": 12},
+    {"series": "bolts", "date": "2026-01-07", "published_on": "2026-01-07", "quantity": 14},
+    {"series": "bolts", "date": "2026-01-08", "published_on": "2026-01-08", "quantity": 16},
+    {"series": "steady", "date": "2026-01-01", "published_on": "2026-01-01", "quantity": 5},
+    {"series": "steady", "date": "2026-01-02", "published_on": "2026-01-02", "quantity": 5},
+    {"series": "steady", "date": "2026-01-03", "published_on": "2026-01-03", "quantity": 5},
+    {"series": "steady", "date": "2026-01-04", "published_on": "2026-01-04", "quantity": 5},
+    {"series": "steady", "date": "2026-01-05", "published_on": "2026-01-05", "quantity": 5}
+  ]
+}
