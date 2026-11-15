@@ -95,3 +95,74 @@ hierarchy是`{"nodes":[{"series","parent","weight"}]}`，节点数<=200。`serie
 样例`fixtures/reconcile_calendar_input.json`与`fixtures/reconcile_vintage_input.json`
 经`demand-backtest`生成两份报告，再用`fixtures/hierarchy.json`（5节点、两层、含正权重Fraction）
 协调，得到12组、60条事实；必须出现最优解触零的叶（如`steady`、部分组`nuts`）。
+
+## Forecast fact store v1（`demand-store`）
+
+`demand-store`把既有回测报告持久化为SQLite预测事实仓，提供`apply`与`query`两个子命令；
+**不重跑模型**，只消费既有`schema_version=1`报告。主入口`demand-backtest`与
+`demand-reconcile`保持不变。事实键为`(series, origin, target_date, method)`，
+同键事实以`horizon`、`forecast`、`actual`、`scale`四个精确值判定是否相同，全部用规范
+Fraction文本读写，不四舍五入。
+
+### apply
+
+```
+demand-store apply --db facts.db --manifest batch.json
+```
+
+清单为严格JSON对象`{"txid","expected_generation","puts":[{"name","path"}],"drops":[{"name"}]}`，
+拒绝重复键、非有限数值和未定义字段。`txid`为1..128字符标识符；`expected_generation`为
+0..2^63-2整数；`puts`与`drops`各至多1000项。**名称在批内互斥**：同一`name`不得在
+`puts`或`drops`中出现两次。`name`是报告在仓内的归属名（非路径），`path`只用于当次读取。
+
+每个`puts.path`必须是一份既有报告：日历回测报告或`mode=revision_vintage`报告，字段形状与
+`demand-reconcile`一致（`schema_version=1`、`source_sha256`为小写SHA256、`result.forecasts`）。
+单份报告上限200000条事实、128MB；清单上限8MB。报告内同键重复即拒绝。
+两条记录可共享同一键当且仅当四个值完全相同；完全相同则共享一条事实并保留**所有**报告归属；
+任一值不同则**整批拒绝**，不写入任何内容。`actual`非负、`scale`非负，均为规范Fraction
+或非负整数；`actual_published_on`、`error_forecast_minus_actual`等报告附带字段忽略。
+
+替换/撤回语义：先删除`drops`中名称的全部归属，再以**批后状态**判定冲突，最后由
+`puts`建立归属。因此：
+- 只撤回一个共享报告：事实仍有其他归属，事实保留、归属减少；
+- 一次批内同时撤回全部旧报告并放入更正报告（即使数值改变）：允许，因为冲突按批后状态判定；
+- 只替换共享事实的一方而另一方仍持有旧值：冲突，整批拒绝；
+- 撤回仓内不存在的名称：拒绝；
+- `puts`名称已在仓内：拒绝。名称批内互斥意味着同一名称不能既`drops`又`puts`，因此更正
+  须在同一批用新名称放入更正报告并撤回旧名称（见上一条）。`reports`目录按名称唯一；
+  报告字节SHA相同不等于名称相同，两条同字节报告各自保留归属。
+
+只有某条事实的**最后一个**归属消失时才删除该事实。代号（`generation`）初始为0，
+每次成功`apply`递增1；写入的事实、归属、报告目录、报告字节SHA、账本与回执在同一事务内
+原子提交，仅当`expected_generation`等于当前已提交代号时才执行，否则退出2且逻辑库不变。
+回执包含`txid`、新代号、批内容SHA256、`facts_added`/`facts_removed`/`facts_shared`、
+当前`fact_count`、完整报告目录与`dropped`。
+
+幂等重试：同`txid`且**批内容相同**时，返回原始回执（即使当前代号已前进，即提交后崩溃/
+丢失回执后重试仍安全）；同`txid`但内容不同则拒绝。内容指纹绑定**报告字节SHA256**、
+名称与`drops`，**不绑定路径**——同一字节的报告换路径重试仍视为同内容。
+
+### query
+
+```
+demand-store query --db facts.db
+```
+
+在**同一读快照**中输出`schema_version=1`、`mode=forecast_store_query`、`generation`、
+按`name`排序的报告目录（`name`/`kind`/
+`source_sha256`/`report_sha256`/`fact_count`）、按
+`(series, origin, target_date, method)`排序的事实（含四个精确值与按名称排序的`reports`
+归属）与`fact_count`。不会混代：读到的是一个已提交代号及其完整状态，绝无半提交批次。
+
+### 失败与文件约束
+
+校验/冲突/代号不匹配/未知撤回/类型不符等失败一律退出2，且逻辑库（事实、归属、报告目录、
+账本与代号）完全不变；校验失败发生在首次写库前，因此不会新建库文件。`--db`为符号链接、
+目录或非仓SQLite文件时拒绝。库与清单、库与任一源报告必须是不同文件：库路径等于清单或
+任一`puts`源报告时退出2，**绝不覆盖源报告**；两个`name`可指向同一源文件（同字节则共享）。
+`apply`以SQLite事务＋WAL提交，支持崩溃回滚与提交后幂等重试；单写者、`BEGIN IMMEDIATE`
+串行化，未抢到同代的进程退出2。
+
+样例操作：先用既有`demand-backtest`生成两份报告（如
+`fixtures/reconcile_calendar_input.json`→日历报告、`fixtures/reconcile_vintage_input.json`
+→修订报告），清单`puts`两项后`apply`，得到`generation=1`、60条事实；`query`可复核归属。

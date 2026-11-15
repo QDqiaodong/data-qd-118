@@ -10,5 +10,6 @@ dependencies = []
 [project.scripts]
 demand-backtest = "demand_backtest.cli:main"
 demand-reconcile = "demand_backtest.reconcile_cli:main"
+demand-store = "demand_backtest.store_cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
