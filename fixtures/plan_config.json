@@ -1,0 +1,26 @@
+{
+  "origin": "2026-01-03",
+  "method": "naive",
+  "series": [
+    {
+      "series": "bolts",
+      "lead_time_days": 1,
+      "shelf_life_days": 2,
+      "unit_cost": 5,
+      "holding_cost": 1
+    }
+  ],
+  "daily_capacity": [
+    {"date": "2026-01-03", "capacity": 4},
+    {"date": "2026-01-04", "capacity": 10},
+    {"date": "2026-01-05", "capacity": 10}
+  ],
+  "initial_batches": [
+    {
+      "series": "bolts",
+      "available": "2026-01-04",
+      "expires": "2026-01-05",
+      "quantity": 6
+    }
+  ]
+}

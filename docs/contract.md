@@ -166,3 +166,65 @@ demand-store query --db facts.db
 样例操作：先用既有`demand-backtest`生成两份报告（如
 `fixtures/reconcile_calendar_input.json`→日历报告、`fixtures/reconcile_vintage_input.json`
 →修订报告），清单`puts`两项后`apply`，得到`generation=1`、60条事实；`query`可复核归属。
+
+## Minimum-cost replenishment plan v1（`demand-plan`）
+
+`demand-plan --db facts.db --config plan.json --output plan_report.json`从预测事实仓的
+**只读**截面生成最小成本补货计划；事实仓以`mode=ro`打开，规划运行绝不写入、不修改源库。
+`--db`、`--config`、`--output`必须是三个不同文件，输出为符号链接时拒绝；校验或不可行失败
+退出2且不触碰已有输出，成功后原子替换。配置沿用严格JSON（拒绝重复键、非有限数值、未定义字段），
+上限8MB；配置字节SHA256随结果保留。
+
+### 配置与截面
+
+配置为`{"origin","method","series","daily_capacity","initial_batches"}`：
+
+- `series`：1..20项，每项含`series`、`lead_time_days`（0..100000）、`shelf_life_days`
+  （1..100000）、`unit_cost`与`holding_cost`（0..10^9非负整数），序列名唯一。
+- `daily_capacity`：逐日共享订货容量，`date/capacity`，容量为0..10^9整数；日期集合必须恰好是
+  订单日集合（`origin`至最后一个目标日，含两端）。
+- `initial_batches`：0..600个初始批次`(series,available,expires,quantity)`，数量0..10^9；
+  `available>=origin`、`expires>available`，批次可用区间为左闭右开`[available,expires)`。
+
+读取条件：同一`(origin,method)`截面非空；其序列集合与配置完全一致；每个序列的目标日期相同、
+按日历日连续，且全部严格晚于`origin`、距`origin`不超过30日。预测值为规范Fraction文本，
+负值拒绝；需求为预测值**向上取整**后的非负整数，取整后超过10^9拒绝。
+
+### 时间、成本与优化问题
+
+订单日为`origin`至最后目标日；订单日`t`下达、`t+lead_i`到货，保质期从到货日起算，
+订购批次可用于目标日`k`当且仅当`arrival<=k<arrival+shelf_i`（左闭右开，到期日不可用）。
+库存可免费弃置，需求必须在当日准时满足。单位成本在采购节点一次性计入；持有费为
+`holding_i`/单位/日，从批次可用日（订购批次为到货日）计至使用日。所有序列共享每个订单日的
+订货容量。容量与数量均为0..10^9整数，成本为非负整数，因此最优流为整数流。
+
+该问题建模为单一联合整数最小费用流：源→共享日容量节点→各（序列,订单日）采购节点→
+各（序列,目标日）需求节点→汇；初始批次直接挂在源上。**禁止逐序列贪心、禁止逐单位展开**：
+求解采用逐次最短路，每次按瓶颈数量整批增广，最短路在完整残量图上以Bellman-Ford重算，
+使增广后才可达的节点仍持有有效势。最坏规模（20序列、30目标日、600批次）约2000节点、
+8000条边，实测秒级完成。
+
+### 输出
+
+`schema_version=1`、`mode=demand_plan`、`config_sha256`与`source`（源代号：事实仓类型、
+读取时的`generation`与截面三元组及事实数），`result`含：
+
+- `status`：`feasible`/`infeasible`；`origin/method/generation`、截面事实数、目标日期、
+  回显的序列参数与逐日容量、初始批次（含`used`，可小于`quantity`即弃置）。
+- `demand`：每序列每目标日取整后的整数需求。
+- `orders`：`(series,order_date,arrival_date,expires_date,quantity)`整数订单，按
+  `(series,order_date)`排序；`allocations`：需求的整数来源分配，标明`order`（引用订单日）
+  或`initial`（引用批次号），按序列/目标日/来源排序。
+- `purchase_cost`、`holding_cost`、`total_cost`（均为精确整数，满足
+  总成本=采购费+从可用日至使用日的持有费）；`flow`给出总需求、已满足与缺口，
+  `demand_shortfall`逐行列未满足量。
+- `certificate`供独立验算：
+  - 可行时`kind=potentials`，给出全部节点（稳定整数id与类型/引用）、全部边
+    （容量/流量/费用/类型）与节点势；独立验算只需重建残量弧并验证
+    每条残量弧`u→v`满足`cost+potential[u]-potential[v]>=0`，且每条需求边饱和。
+  - 不可行时`kind=min_cut`，给出残量可达集`reachable`、前向割边`cut_edges`、
+    `cut_capacity=max_flow=satisfied`；可达集对正残量弧封闭、含源不含汇，缺口等于
+    总需求减最大流。不可行本身是正常业务结果，退出0；只有坏输入才退出2。
+
+样例`fixtures/plan_config.json`配合`fixtures/input.json`生成的事实仓：naive预测在两个目标日
+均为6，6单位初始批次免费覆盖首日，次日由6单位新采购按单位成本5满足，总成本30。

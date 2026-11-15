@@ -26,6 +26,8 @@ cat > run/batch.json <<'JSON'
 JSON
 .venv/bin/demand-store apply --db run/facts.db --manifest run/batch.json
 .venv/bin/demand-store query --db run/facts.db > run/facts.json
+.venv/bin/demand-plan --db run/facts.db --config fixtures/plan_config.json \
+    --output run/plan.json
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
@@ -40,8 +42,9 @@ JSON
 src/demand_backtest/model.py 为业务模型，相关算法模块独立组织；common.py 提供受限JSON及报告发布，
 cli.py 衔接数据链路，vintage.py 处理修订版回测。reconcile.py/reconcile_cli.py 把两份既有报告
 协调到层级上，tree_qp.py 是精确树二次规划求解器。store.py/store_cli.py 把既有回测报告持久化为
-SQLite预测事实仓（`demand-store`的`apply`/`query`），不重跑模型。fixtures 为明确自制样例，
-代码与样例采用MIT许可。
+SQLite预测事实仓（`demand-store`的`apply`/`query`），不重跑模型。plan.py/plan_cli.py
+（`demand-plan`）以只读事实仓截面为输入，用整数最小费用流生成最小成本补货计划，并输出残量网络
+与势/最小割证书。fixtures 为明确自制样例，代码与样例采用MIT许可。
 
 ## 业务与样例结果
 
@@ -62,4 +65,14 @@ lineage、actual_published_on与skipped原因便于审计，后发修订不改�
 存事实并以报告字节SHA绑定归属；`query`在同一快照输出代号、报告清单、排序事实与归属。
 代号从0起，每次成功事务原子递增；同txid同内容幂等返回原回执，异内容拒绝。详见
 [数据契约](docs/contract.md)的Forecast fact store v1。
+
+最小成本补货计划（`demand-plan`）：以只读方式打开事实仓，按`(origin,method)`取一个截面，
+预测向上取整为整数需求，在“逐日共享订货容量、交期、保质期、初始批次、采购费与日持有费”下
+联合求解整数最小费用流。订单日为origin至末目标日，`t+交期`到货，保质期从到货日起算、
+批次区间左闭右开；库存可弃置、需求须准时满足，成本=采购费+从可用日至使用日的持有费。
+不做逐序列贪心、不逐单位展开，每次按瓶颈量整批增广。可行输出订单/批次的整数分配、总成本，
+以及完整残量网络与节点势证书（每条残量弧约化费用非负）；不可行输出缺口与残量最小割
+（割容量=最大流）。坏输入退出2并保留旧输出，源事实仓不被修改。支持20序列、600初始批次、
+0..10^9整数容量/数量；小例由测试中的独立穷举 oracle 核验最优，覆盖过期、长交期与共享容量
+贪心反例。详见[数据契约](docs/contract.md)的Minimum-cost replenishment plan v1。
 
